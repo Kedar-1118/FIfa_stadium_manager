@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   DoorOpen,
   Users,
-  Menu,
   ChevronLeft,
   ChevronRight,
   Sun,

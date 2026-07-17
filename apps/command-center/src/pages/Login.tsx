@@ -7,7 +7,7 @@
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Lock, Mail, AlertTriangle, Loader2, UserPlus, CheckCircle } from "lucide-react";
+import { Shield, Lock, Mail, AlertTriangle, Loader2, CheckCircle } from "lucide-react";
 import api from "../services/api";
 
 export const Login: React.FC = () => {
@@ -15,7 +15,7 @@ export const Login: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("FAN");
+  const role = "FAN";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

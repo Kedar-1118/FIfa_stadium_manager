@@ -8,7 +8,7 @@
 
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Zap, Cpu, Users, Eye, ArrowRight, Activity, Terminal } from "lucide-react";
+import { Shield, Zap, Cpu, Users, ArrowRight, Activity, Terminal } from "lucide-react";
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
