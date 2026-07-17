@@ -17,6 +17,7 @@ import { IncidentStatus, VolunteerStatus } from "../../domain/enums";
 import { EntityNotFoundError, BusinessRuleViolationError } from "../../domain/exceptions";
 import { config } from "../../config";
 import { logger } from "../../infrastructure/logging/logger";
+import { prisma } from "../../infrastructure/database/prisma";
 
 export class IncidentService {
   private incidentRepo: IIncidentRepository;
@@ -82,16 +83,31 @@ export class IncidentService {
       throw new EntityNotFoundError("Volunteer", req.volunteer_id);
     }
 
-    // Allocate volunteer status check
+    // Allocate volunteer status checks
     volunteer.assignToIncident();
-    await this.volunteerRepo.save(volunteer);
-
-    // Link volunteer to incident
     incident.assignVolunteer(volunteer.id);
     
-    const saved = await this.incidentRepo.save(incident);
-    logger.info({ incidentId: saved.id, volunteerId: volunteer.id }, "Volunteer assigned to incident successfully");
-    return saved;
+    // Execute atomic transaction update across tables
+    const saved = await prisma.$transaction(async (tx) => {
+      await tx.volunteer.update({
+        where: { id: volunteer.id },
+        data: { status: "ASSIGNED" }
+      });
+      const model = await tx.incident.update({
+        where: { id: incident.id },
+        data: {
+          status: "ACKNOWLEDGED",
+          assigned_volunteer_id: volunteer.id
+        }
+      });
+      return model;
+    });
+
+    const domainIncident = await this.incidentRepo.getById(saved.id);
+    if (!domainIncident) throw new Error("Failed to load incident after transaction commit.");
+    
+    logger.info({ incidentId: domainIncident.id, volunteerId: volunteer.id }, "Volunteer assigned atomically inside database transaction");
+    return domainIncident;
   }
 
   public async resolveIncident(id: string, req: IncidentResolve): Promise<Incident> {

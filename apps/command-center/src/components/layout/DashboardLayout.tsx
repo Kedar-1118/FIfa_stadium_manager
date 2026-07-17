@@ -100,6 +100,14 @@ export const DashboardLayout: React.FC = () => {
   return (
     <div className="min-h-screen flex bg-background text-foreground transition-colors duration-200">
       
+      {/* WCAG Skip Navigation link */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-lg focus:shadow-md"
+      >
+        Skip to main content
+      </a>
+      
       {/* 1. Left Collapsible Sidebar */}
       <aside 
         className={`border-r border-border bg-card/60 backdrop-blur-md transition-all duration-300 flex flex-col flex-shrink-0 relative z-20 ${
@@ -258,7 +266,7 @@ export const DashboardLayout: React.FC = () => {
         </header>
 
         {/* 3. Main Outlet Container (Sub-views) */}
-        <main className="flex-1 overflow-y-auto bg-background p-6">
+        <main id="main-content" className="flex-1 overflow-y-auto bg-background p-6">
           <Outlet />
         </main>
       </div>

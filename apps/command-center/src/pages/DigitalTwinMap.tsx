@@ -24,6 +24,25 @@ import { useUIStore } from "../store/uiStore";
 const STADIUM_LAT = 32.7473;
 const STADIUM_LON = -97.0945;
 
+// Memoized static sector polygons layout vector layer to optimize React render performance
+const StaticStadiumLayout = React.memo(() => (
+  <>
+    <div className="absolute top-4 left-1/4 w-[150px] h-[100px] rounded-full bg-green-500/10 border-2 border-green-500/35 flex items-center justify-center text-xs font-bold text-green-400">
+      North Sector
+    </div>
+    <div className="absolute bottom-4 left-1/4 w-[150px] h-[100px] rounded-full bg-red-500/10 border-2 border-red-500/35 flex items-center justify-center text-xs font-bold text-red-400">
+      South Sector
+    </div>
+    <div className="absolute top-1/3 left-4 w-[100px] h-[150px] rounded-full bg-yellow-500/10 border-2 border-yellow-500/35 flex items-center justify-center text-xs font-bold text-yellow-400">
+      West Ingress
+    </div>
+    <div className="absolute top-1/3 right-4 w-[100px] h-[150px] rounded-full bg-green-500/10 border-2 border-green-500/35 flex items-center justify-center text-xs font-bold text-green-400">
+      East Sector
+    </div>
+  </>
+));
+StaticStadiumLayout.displayName = "StaticStadiumLayout";
+
 export const DigitalTwinMap: React.FC = () => {
   const { activeStadiumId } = useUIStore();
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -101,18 +120,7 @@ export const DigitalTwinMap: React.FC = () => {
           {/* Centered Stadium Grid Vector */}
           <div className="w-[300px] h-[300px] md:w-[450px] md:h-[450px] rounded-full border-4 border-slate-800 relative flex items-center justify-center bg-slate-900/40 backdrop-blur-sm shadow-inner">
             {/* Sectors polygons overlay vectors */}
-            <div className="absolute top-4 left-1/4 w-[150px] h-[100px] rounded-full bg-green-500/10 border-2 border-green-500/35 flex items-center justify-center text-xs font-bold text-green-400">
-              North Sector
-            </div>
-            <div className="absolute bottom-4 left-1/4 w-[150px] h-[100px] rounded-full bg-red-500/10 border-2 border-red-500/35 flex items-center justify-center text-xs font-bold text-red-400">
-              South Sector
-            </div>
-            <div className="absolute top-1/3 left-4 w-[100px] h-[150px] rounded-full bg-yellow-500/10 border-2 border-yellow-500/35 flex items-center justify-center text-xs font-bold text-yellow-400">
-              West Ingress
-            </div>
-            <div className="absolute top-1/3 right-4 w-[100px] h-[150px] rounded-full bg-green-500/10 border-2 border-green-500/35 flex items-center justify-center text-xs font-bold text-green-400">
-              East Sector
-            </div>
+            <StaticStadiumLayout />
 
             {/* Live Markers Indicators */}
             {/* Gate Marker (Green open) */}

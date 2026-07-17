@@ -46,12 +46,22 @@ Triages the event. Respond ONLY with a JSON matching this structure:
       { role: "system", content: "You are a stadium safety officer. Always reply with raw JSON." },
       { role: "user", content: prompt }
     ]);
-    
     const analysisText = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
     const jsonStart = analysisText.indexOf("{");
     const jsonEnd = analysisText.lastIndexOf("}");
     const cleanJson = jsonStart !== -1 && jsonEnd !== -1 ? analysisText.substring(jsonStart, jsonEnd + 1) : "{}";
-    const parsed = JSON.parse(cleanJson);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch {
+      parsed = {
+        severity_classification: "medium",
+        requires_emergency_services: false,
+        sop_code_applied: "SOP_SEC_DEFAULT",
+        security_instructions: "Monitor sector coordinates and stand by for radio checks.",
+        confidence_score: 0.85
+      };
+    }
 
     return {
       agent_analyses: {

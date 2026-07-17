@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 COPY package*.json tsconfig.json ./
 COPY prisma/ ./prisma/
 
-RUN npm ci
+RUN npm install
 
 # Generate prisma types client
 RUN npx prisma generate
@@ -23,7 +23,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 COPY prisma/ ./prisma/
 
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Re-generate prisma client under production packages context
 RUN npx prisma generate

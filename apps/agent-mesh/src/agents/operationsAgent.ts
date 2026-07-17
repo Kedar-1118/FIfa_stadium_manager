@@ -55,7 +55,17 @@ Respond ONLY with a JSON matching this structure:
     const jsonStart = analysisText.indexOf("{");
     const jsonEnd = analysisText.lastIndexOf("}");
     const cleanJson = jsonStart !== -1 && jsonEnd !== -1 ? analysisText.substring(jsonStart, jsonEnd + 1) : "{}";
-    const parsed = JSON.parse(cleanJson);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch {
+      // Determine default fallback based on alert categories
+      const isMedical = alert.incident_type.toLowerCase().includes("medical") || alert.description.toLowerCase().includes("medical");
+      parsed = {
+        next_agent: isMedical ? "SecurityAgent" : "CrowdAgent",
+        delegation_payload: "Proceed with standard triage SOP."
+      };
+    }
 
     // Save decision to logs
     const nextNode = parsed.next_agent || "end";

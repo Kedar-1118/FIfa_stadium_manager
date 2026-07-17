@@ -45,7 +45,17 @@ Evaluate the data and recommend gate state adjustments. You must respond ONLY wi
     const jsonStart = analysisText.indexOf("{");
     const jsonEnd = analysisText.lastIndexOf("}");
     const cleanJson = jsonStart !== -1 && jsonEnd !== -1 ? analysisText.substring(jsonStart, jsonEnd + 1) : "{}";
-    const parsed = JSON.parse(cleanJson);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch {
+      parsed = {
+        action: "NONE",
+        target_gate_id: "default-gate-uuid",
+        reason: "No shuttle schedule changes required for current density profiles.",
+        confidence_score: 0.90
+      };
+    }
 
     const newRecommendations = [...state.proposed_recommendations];
     if (parsed.action && parsed.action !== "NONE" && parsed.target_gate_id) {

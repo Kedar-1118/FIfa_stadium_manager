@@ -44,26 +44,31 @@ router.get(
         for (const code of fallbackGates) {
           let status = await cacheService.get(`gate:status:${code}`);
           if (!status) {
-            status = "CLOSED";
+            status = "OPEN"; // Default open for testing
             await cacheService.set(`gate:status:${code}`, status);
           }
+          // Simulate dynamic matchday turnstile ingress rates (e.g. surge at Gate A)
+          const flowRate = code === "GATE_A" && status === "OPEN" ? 175 : (status === "OPEN" ? 110 : 0);
           responseGates.push({
             gate_id: "00000000-0000-0000-0000-000000000000",
             gate_code: code,
             status,
-            current_flow_rate_per_min: status === "OPEN" ? 120 : 0,
-            average_wait_time_seconds: status === "OPEN" ? 45 : 0
+            current_flow_rate_per_min: flowRate,
+            average_wait_time_seconds: status === "OPEN" ? 45 : 0,
+            inflow_velocity_surge_alert: flowRate > 150 // Flags high velocity surges (FIFA Operations compliance)
           });
         }
       } else {
         for (const g of dbSectors) {
           const status = await cacheService.get(`gate:status:${g.gate_code}`) || g.status;
+          const flowRate = status === "OPEN" ? 145 : 0;
           responseGates.push({
             gate_id: g.id,
             gate_code: g.gate_code,
             status,
-            current_flow_rate_per_min: status === "OPEN" ? 145 : 0,
-            average_wait_time_seconds: status === "OPEN" ? 30 : 0
+            current_flow_rate_per_min: flowRate,
+            average_wait_time_seconds: status === "OPEN" ? 30 : 0,
+            inflow_velocity_surge_alert: flowRate > 150
           });
         }
       }

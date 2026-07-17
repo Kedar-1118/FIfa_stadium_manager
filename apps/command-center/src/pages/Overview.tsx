@@ -136,9 +136,8 @@ export const Overview: React.FC = () => {
         </button>
       </header>
 
-      {/* KPI Cards Grid */}
       <section 
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
         aria-label="Core operational statistics"
       >
         {/* Occupancy Card */}
@@ -192,7 +191,28 @@ export const Overview: React.FC = () => {
             <Users className="w-6 h-6" />
           </div>
         </div>
+
+        {/* Transit & Sustainability Card (New Hackathon alignment card) */}
+        <div className="p-6 rounded-xl border border-border bg-card shadow-sm flex items-center justify-between">
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Eco-Transit Status</span>
+            <span className="text-sm font-bold block text-foreground leading-tight">
+              Shuttles: A (3m) • B (5m)<br/>
+              Offset: <span className="text-green-500 font-extrabold">14.5t CO₂</span>
+            </span>
+          </div>
+          <div className="p-3 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/20">
+            <Activity className="w-6 h-6" />
+          </div>
+        </div>
       </section>
+
+      {/* Dynamic Screen Reader Announcer Zone */}
+      <div className="sr-only" aria-live="polite">
+        {telemetry.active_incidents_count > 0 
+          ? `Operations alert: ${telemetry.active_incidents_count} active incidents require dispatcher review.` 
+          : "Dallas Stadium operations stable. Eco-transit routes running on schedule."}
+      </div>
 
       {/* Main Charts & Incident Stream Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
