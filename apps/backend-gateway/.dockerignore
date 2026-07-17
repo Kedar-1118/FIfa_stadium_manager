@@ -1,0 +1,43 @@
+# =============================================================================
+# StadiumOS AI — Backend Gateway Docker Ignore
+# =============================================================================
+# Prevents sensitive, unnecessary, and large files from being copied into the
+# Docker build context. This reduces build time and prevents secret leakage.
+# =============================================================================
+
+# Version control
+.git
+.gitignore
+
+# Environment files (secrets must NEVER be baked into images)
+.env
+.env.*
+!.env.example
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Test files (not needed in production image)
+tests/
+htmlcov/
+.coverage
+
+# IDE configuration
+.vscode/
+.idea/
+
+# Documentation
+*.md
+docs/
+
+# Docker files (prevent recursive context inclusion)
+Dockerfile
+docker-compose*.yml
