@@ -34,4 +34,10 @@ EXPOSE 8000
 
 ENV NODE_ENV=production
 
+# Change ownership to non-root user
+RUN chown -R node:node /usr/src/app
+
+USER node
+
 CMD ["node", "dist/server.js"]
+

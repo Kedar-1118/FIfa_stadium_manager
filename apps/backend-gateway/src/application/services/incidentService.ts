@@ -126,13 +126,20 @@ export class IncidentService {
   private async triggerAgentMeshReasoning(incident: Incident, stadiumId: string): Promise<void> {
     try {
       logger.info({ incidentId: incident.id }, "Triggering LangGraph agent reasoning cycle...");
+
+      // Sanitization: Strip systemic keywords to prevent prompt jailbreaks
+      const sanitizedDesc = incident.description
+        .replace(/ignore previous/gi, "")
+        .replace(/system override/gi, "")
+        .replace(/<system_prompt>|<\/system_prompt>/gi, "")
+        .trim();
       
       const response = await axios.post(`${config.agentMeshUrl}/reason`, {
         incident_id: incident.id,
         stadium_id: stadiumId,
         incident_type: incident.incident_type,
         severity: incident.severity,
-        description: incident.description
+        description: sanitizedDesc
       }, {
         headers: {
           "Content-Type": "application/json",

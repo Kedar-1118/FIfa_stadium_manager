@@ -71,4 +71,10 @@ try {
   process.exit(1);
 }
 
+if (validatedConfig.nodeEnv === "production" && 
+    validatedConfig.jwtSecretKey.includes("dev-only-insecure-key")) {
+  console.error("FATAL SECURITY BREACH: Default insecure JWT secret key cannot be used in production.");
+  process.exit(1);
+}
+
 export const config = validatedConfig;

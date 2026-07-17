@@ -57,7 +57,9 @@ export function createRefreshToken(userId: string): string {
  */
 export function verifyToken(token: string, expectedType: "access" | "refresh"): any {
   try {
-    const payload = jwt.verify(token, config.jwtSecretKey) as any;
+    const payload = jwt.verify(token, config.jwtSecretKey, {
+      algorithms: ["HS256"]
+    }) as any;
     
     if (payload.type !== expectedType) {
       throw new AuthenticationError("Invalid token type mapping.");
