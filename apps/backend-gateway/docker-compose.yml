@@ -140,6 +140,23 @@ services:
       redis:
         condition: service_healthy
 
+  # ---------------------------------------------------------------------------
+  # Command Center — React Web Dashboard
+  # ---------------------------------------------------------------------------
+  command-center:
+    build:
+      context: ../command-center
+      dockerfile: Dockerfile
+    container_name: stadiumos-command-center
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      VITE_API_URL: "http://localhost:8000/api/v1"
+      VITE_WS_URL: "ws://localhost:8000/ws"
+    depends_on:
+      - api
+
 # ---------------------------------------------------------------------------
 # Named Volumes
 # ---------------------------------------------------------------------------
@@ -149,4 +166,5 @@ services:
 volumes:
   postgres_data:
     driver: local
+
 

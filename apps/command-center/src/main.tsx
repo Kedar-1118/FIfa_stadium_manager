@@ -16,6 +16,7 @@ import GateControls from "./pages/GateControls";
 import VolunteerRegistry from "./pages/VolunteerRegistry";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import WebSocketProvider from "./components/auth/WebSocketProvider";
 import "./index.css";
 
 // 1. Initialize TanStack React Query cache client
@@ -73,7 +74,10 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <WebSocketProvider>
+        <RouterProvider router={router} />
+      </WebSocketProvider>
     </QueryClientProvider>
   </React.StrictMode>
 );
+

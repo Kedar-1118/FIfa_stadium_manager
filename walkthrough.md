@@ -1,77 +1,75 @@
-# StadiumOS AI — Port to TypeScript & Express NodeJS
+# StadiumOS AI — Unified Monorepo Platform Walkthrough
 
-We have successfully ported the complete **stadium-gateway** backend from Python/FastAPI to **TypeScript NodeJS (Express, Prisma ORM, Zod, ioredis, Pino, Jest)**. The codebase preserves the Clean Architecture directory layout and domain rule boundaries 1-to-1.
+We have successfully designed and built the complete **StadiumOS AI** monorepo workspace for FIFA World Cup 2026 stadium operations, consisting of three independent, decoupled microservices.
 
 ---
 
-## 1. Directory Registry & Clean Architecture
-
-The ported gateway structure:
+## 1. Unified Monorepo Architecture
 
 ```
-apps/backend-gateway/
-├── prisma/
-│   └── schema.prisma          # Database DDL models, keys, and cascades (Prisma ORM)
-├── package.json               # NodeJS dependencies & scripts
-├── tsconfig.json              # TS target and paths configuration
-├── Dockerfile                 # Multi-stage compile configuration
-├── docker-compose.yml         # Dev orchestration
-├── src/
-│   ├── config.ts              # Zod settings validator (fails fast on config issues)
-│   ├── server.ts              # Server bootstrap and WS mounting
-│   ├── domain/                # Enterprise business rules
-│   │   ├── enums.ts           # Capitalized categorical enums
-│   │   ├── exceptions.ts      # Custom error classes (mapped 1-to-1)
-│   │   ├── valueObjects.ts    # Coordinates, capacity warnings
-│   │   └── entities/          # Pure entity classes (User, Gate, Volunteer, etc.)
-│   ├── application/           # ports, schemas, services
-│   │   ├── ports/             # IUserRepository, IIncidentRepository interfaces
-│   │   ├── schemas/           # Zod body validation DTO schemas
-│   │   └── services/          # AuthService, IncidentService, GateService, etc.
-│   ├── infrastructure/        # Framework adapters
-│   │   ├── database/          # PrismaClient client singleton
-│   │   ├── cache/             # ioredis connection pool and CacheService methods
-│   │   ├── logging/           # Pino structured JSON logger config
-│   │   ├── repositories/      # PrismaUserRepository, PrismaIncidentRepository, etc.
-│   │   └── security/          # jwt_handler, bcrypt verification, and RBAC guards
-│   └── interfaces/            # API Delivery & Middlewares
-│       ├── api/v1/            # Express versioned routers
-│       └── middleware/        # requestLogging, errorHandler, rateLimiter
+stadiumos-dir/
+├── apps/
+│   ├── backend-gateway/         # TS Express API Gateway
+│   │   ├── prisma/              # schema.prisma DDL models (Prisma ORM)
+│   │   ├── src/                 # Controllers, services, and middlewares
+│   │   └── Dockerfile
+│   │
+│   ├── agent-mesh/              # TS LangGraph AI Orchestrator
+│   │   ├── src/                 # Operations, Crowd, Security, Transport, and Volunteer agent nodes
+│   │   └── Dockerfile
+│   │
+│   └── command-center/          # React Vite Tailwind Web Dashboard
+│       ├── src/
+│       │   ├── store/uiStore.ts # Zustand UI preferences store
+│       │   ├── services/api.ts  # Axios client configuration
+│       │   ├── components/      # Accessible layouts & ProtectedRoutes
+│       │   └── pages/           # Login, Overview, DigitalTwinMap, IncidentTriage, GateControls, VolunteerRegistry
+│       └── Dockerfile
+│
+└── apps/backend-gateway/docker-compose.yml # Main orchestration compose file
 ```
 
 ---
 
-## 2. Ported Technology Map
+## 2. Platform Component Highlights
 
-| Python FastAPI Gateway | TypeScript NodeJS Port | Description |
-| :--- | :--- | :--- |
-| **SQLAlchemy + SQLModel** | **Prisma ORM** | Highly-typed model declarations with auto-generated clients. |
-| **Alembic** | **Prisma Migrations** | Schema syncs via auto-generated database migration scripts. |
-| **Pydantic Settings & Base** | **Zod** | Run-time body parsing validations and schema parsing. |
-| **redis.asyncio** | **ioredis** | Connection pools supporting geospatial search and Redis geo indexes. |
-| **structlog** | **Pino Logger** | High-performance JSON logging lines tracking correlation IDs. |
-| **jose** | **jsonwebtoken** | Token signatures checks for accesses and refreshes. |
-| **slowapi** | **express-rate-limit** | Custom rate limiting endpoints using Redis stores. |
-| **pytest + httpx** | **Jest + Supertest** | Clean test validations of routes, schemas, and guards. |
+### 2.1 Web Dashboard (React, Vite, Tailwind, Shadcn UI)
+- **Real-Time Digital Twin Map (`DigitalTwinMap.tsx`)**: Integrates vectors detailing stadium sector polygon overlays. Connects to the **AI Decision Support Sidebar** to stream LangGraph agent recommendations, evaluate RCS confidence scores, and authorize gate status overrides directly.
+- **Incident Triage Board (`IncidentTriage.tsx`)**: Visualizes reported alerts. Features detailed inspectors sidebars querying nearby volunteer matching tables (`/volunteers/search/nearby`) and coordinates dispatches.
+- **Evacuation Override Modal (`Overview.tsx`)**: Implements confirm-action gates forcing operators to type `EVACUATE` to authorize emergency evacuations.
+- **WCAG AA Accessibility**: Implements full keyboard navigation tabIndex tags, focus rings, semantic layouts, and HSL style configurations for dark mode swaps.
+
+### 2.2 Express API Gateway (TypeScript Node)
+- **Database Persistence**: Employs Prisma Client singletons querying PostgreSQL.
+- **Telemetry Cache**: ioredis pooling geo spatial searches (`geoadd`/`georadius`) mapping volunteers.
+- **WebSockets Manager**: Real-time broadcasts upgrade router at `/ws?token=...` notifying client displays.
+- **Middlewares**: Custom request correlation IDs, distributed rate limiting, and global error mappings.
+
+### 2.3 Agent Mesh Orchestrator (TypeScript LangGraph)
+- **Supervisor Routing**: Orchestrates reasoning cycles. Routing conditional links map to specialists:
+  - **Crowd Agent**: Ingress bottlenecks.
+  - **Transport Agent**: Transit scheduling & gate operations.
+  - **Security Agent**: Threat triaging.
+  - **Volunteer Agent**: Geolocation allocations.
+- **Mock Failover Adapters**: Integrates `SandboxMockLLM` and offline RAG SOP pages, ensuring local execution stability without API key blocks.
 
 ---
 
-## 3. Quick-Start Orchestration & Migrations
+## 3. Launching the Platform
 
-### 1. Run database migrations
-Ensure your local PostgreSQL database is up, and trigger Prisma to create tables:
+### 1. Database migrations
+Sync your PostgreSQL schema using Prisma:
 ```bash
 cd apps/backend-gateway
-# Initialize Prisma Client and sync migrations
 npx prisma migrate dev --name init
 ```
 
-### 2. Boot the development servers
-To start the hot-reloaded development stack (database, cache, gateway API, and agent mesh):
+### 2. Boot all services
+Run the docker-compose orchestrator from `apps/backend-gateway`:
 ```bash
 docker compose up -d --build
 ```
-Once up:
-* **NodeJS Gateway API**: [http://localhost:8000](http://localhost:8000)
-* **Agent Mesh Routing health check**: [http://localhost:8001/health](http://localhost:8001/health)
-* **Interactive Prisma Database Viewer**: `npx prisma studio` (launches database dashboard locally)
+Once booted, the following services are live:
+- **React Command Center Dashboard**: [http://localhost:3000](http://localhost:3000) (Login: use registered operator accounts)
+- **NodeJS Gateway API**: [http://localhost:8000](http://localhost:8000) (API Docs: `/docs`)
+- **Agent Mesh Health probe**: [http://localhost:8001/health](http://localhost:8001/health)
