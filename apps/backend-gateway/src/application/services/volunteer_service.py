@@ -103,9 +103,11 @@ class VolunteerService:
         if not volunteer:
             raise EntityNotFoundError("Volunteer", str(volunteer_id))
 
+        from datetime import datetime
+
         old_status = volunteer.status
         volunteer.status = req.status
-        volunteer.updated_at = uuid.datetime.utcnow() if hasattr(uuid, 'datetime') else None # Handled inside database timestamp auto-update or domain constructor
+        volunteer.updated_at = datetime.utcnow()
 
         saved = await self.volunteer_repo.save(volunteer)
         await logger.ainfo(

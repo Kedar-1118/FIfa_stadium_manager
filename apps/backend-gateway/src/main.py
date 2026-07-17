@@ -178,6 +178,9 @@ def create_app() -> FastAPI:
     from src.interfaces.api.v1.auth_router import router as auth_router
     from src.interfaces.api.v1.stadium_router import router as stadium_router
     from src.interfaces.api.v1.gate_router import router as gate_router
+    from src.interfaces.api.v1.volunteer_router import router as volunteer_router
+    from src.interfaces.api.v1.incident_router import router as incident_router
+    from src.interfaces.api.v1.crowd_router import router as crowd_router
 
     # Register the auth router (maps endpoints to /api/v1/auth/*)
     app.include_router(auth_router, prefix="/api/v1")
@@ -187,6 +190,15 @@ def create_app() -> FastAPI:
 
     # Register the gate router (maps endpoints to /api/v1/gates/* and /api/v1/stadiums/sectors/*/gates)
     app.include_router(gate_router, prefix="/api/v1")
+
+    # Register the volunteer router (maps endpoints to /api/v1/volunteers/*)
+    app.include_router(volunteer_router, prefix="/api/v1")
+
+    # Register the incident router (maps endpoints to /api/v1/incidents/*)
+    app.include_router(incident_router, prefix="/api/v1")
+
+    # Register the crowd telemetry router (maps endpoints to /api/v1/crowd/*)
+    app.include_router(crowd_router, prefix="/api/v1")
 
     return app
 
