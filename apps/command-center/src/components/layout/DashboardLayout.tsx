@@ -2,7 +2,8 @@
  * StadiumOS AI — Unified App Shell Layout.
  * 
  * Provides collapsible sidebar, keyboard navigation support (WCAG AA),
- * active stadium context selection, theme toggling, and notifications count indicators.
+ * active stadium context selection, theme toggling, notifications indicators,
+ * and Role-Based navigation filtering.
  */
 
 import React, { useEffect, useState } from "react";
@@ -21,6 +22,7 @@ import {
   LogOut,
   Building,
   Bell,
+  AlertCircle,
 } from "lucide-react";
 import { useUIStore } from "../../store/uiStore";
 import api from "../../services/api";
@@ -30,6 +32,7 @@ interface SidebarItem {
   path: string;
   icon: React.ComponentType<any>;
   badgeKey?: string;
+  allowedRoles: string[];
 }
 
 export const DashboardLayout: React.FC = () => {
@@ -42,17 +45,33 @@ export const DashboardLayout: React.FC = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("stadiumos-user") || "{}");
+  const userRole = user.role || "";
 
+  // 1. Define all links with role boundaries
   const sidebarLinks: SidebarItem[] = [
-    { name: "Overview", path: "/dashboard", icon: LayoutDashboard },
-    { name: "Digital Twin Map", path: "/dashboard/map", icon: Map },
-    { name: "Incident Triage", path: "/dashboard/incidents", icon: AlertTriangle, badgeKey: "alerts" },
-    { name: "Gate Controls", path: "/dashboard/gates", icon: DoorOpen },
-    { name: "Volunteer Registry", path: "/dashboard/volunteers", icon: Users }
+    { name: "Overview", path: "/dashboard", icon: LayoutDashboard, allowedRoles: ["ADMIN", "OPERATOR", "VOLUNTEER"] },
+    { name: "Digital Twin Map", path: "/dashboard/map", icon: Map, allowedRoles: ["ADMIN", "OPERATOR"] },
+    { name: "Incident Triage", path: "/dashboard/incidents", icon: AlertTriangle, badgeKey: "alerts", allowedRoles: ["ADMIN", "OPERATOR"] },
+    { name: "Gate Controls", path: "/dashboard/gates", icon: DoorOpen, allowedRoles: ["ADMIN", "OPERATOR"] },
+    { name: "Volunteer Registry", path: "/dashboard/volunteers", icon: Users, allowedRoles: ["ADMIN", "OPERATOR", "VOLUNTEER"] },
+    { name: "Fan Portal", path: "/dashboard/fan", icon: AlertCircle, allowedRoles: ["FAN"] }
   ];
+
+  // Filter links for current role
+  const visibleLinks = sidebarLinks.filter((link) => link.allowedRoles.includes(userRole));
+
+  // Redirect FAN from landing on dashboard home (which is overview and restricted to operators)
+  useEffect(() => {
+    if (userRole === "FAN" && location.pathname === "/dashboard") {
+      navigate("/dashboard/fan");
+    }
+  }, [userRole, location.pathname, navigate]);
 
   // Fetch active stadiums list & alert counts on mount
   useEffect(() => {
+    // Fans don't need to load overall incident/stadium lists
+    if (userRole === "FAN") return;
+
     const fetchData = async () => {
       try {
         const response = await api.get("/stadiums");
@@ -63,7 +82,6 @@ export const DashboardLayout: React.FC = () => {
         }
       } catch (err) {
         console.warn("Failed to load stadiums list, applying default context.");
-        // Fallback Dallas Stadium
         setStadiums([{ id: "dallas-stadium-id", name: "Dallas Stadium (AT&T Stadium)" }]);
         if (!activeStadiumId) {
           setActiveStadiumId("dallas-stadium-id");
@@ -74,27 +92,19 @@ export const DashboardLayout: React.FC = () => {
         const resIncidents = await api.get("/incidents");
         setActiveAlertsCount(resIncidents.data?.length || 0);
       } catch (err) {
-        // Fallback alert count
         setActiveAlertsCount(3);
       }
     };
 
     fetchData();
-    
-    // Poll alert count every 15 seconds as a fallback
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
-  }, [activeStadiumId, setActiveStadiumId]);
+  }, [activeStadiumId, setActiveStadiumId, userRole]);
 
   const handleLogout = () => {
     localStorage.removeItem("stadiumos-access-token");
     localStorage.removeItem("stadiumos-user");
     navigate("/login");
-  };
-
-  const getActiveStadiumName = () => {
-    const match = stadiums.find((s) => s.id === activeStadiumId);
-    return match ? match.name : "Select Venue...";
   };
 
   return (
@@ -138,7 +148,7 @@ export const DashboardLayout: React.FC = () => {
 
         {/* Sidebar Nav Links */}
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-          {sidebarLinks.map((link) => {
+          {visibleLinks.map((link) => {
             const isActive = location.pathname === link.path;
             const Icon = link.icon;
             
@@ -185,24 +195,33 @@ export const DashboardLayout: React.FC = () => {
         {/* Main Header Navbar */}
         <header className="h-16 border-b border-border bg-card/60 backdrop-blur-md flex items-center justify-between px-6 relative z-10">
           
-          {/* Left: Active Stadium Dropdown */}
+          {/* Left: Active Stadium Context Dropdown (Only for staff roles) */}
           <div className="flex items-center gap-4">
-            <label htmlFor="stadium-select" className="sr-only">Active Stadium Context</label>
-            <div className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary/50 text-sm font-medium">
-              <Building className="w-4 h-4 text-muted-foreground" />
-              <select
-                id="stadium-select"
-                value={activeStadiumId || ""}
-                onChange={(e) => setActiveStadiumId(e.target.value)}
-                className="bg-transparent focus:outline-none text-foreground cursor-pointer font-medium"
-              >
-                {stadiums.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-background text-foreground">
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {userRole !== "FAN" ? (
+              <>
+                <label htmlFor="stadium-select" className="sr-only">Active Stadium Context</label>
+                <div className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary/50 text-sm font-medium">
+                  <Building className="w-4 h-4 text-muted-foreground" />
+                  <select
+                    id="stadium-select"
+                    value={activeStadiumId || ""}
+                    onChange={(e) => setActiveStadiumId(e.target.value)}
+                    className="bg-transparent focus:outline-none text-foreground cursor-pointer font-medium"
+                  >
+                    {stadiums.map((s) => (
+                      <option key={s.id} value={s.id} className="bg-background text-foreground">
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm font-bold text-muted-foreground flex items-center gap-2">
+                <Building className="w-4 h-4 text-slate-500" />
+                <span>StadiumOS Fan Space</span>
+              </div>
+            )}
           </div>
 
           {/* Right: Controls & User Profile */}
@@ -216,18 +235,20 @@ export const DashboardLayout: React.FC = () => {
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Notification Alert Status */}
-            <div className="relative">
-              <button 
-                aria-label="View alerts notification center"
-                className="p-2 rounded-lg border border-border hover:bg-secondary text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition relative"
-              >
-                <Bell className="w-4 h-4" />
-                {activeAlertsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                )}
-              </button>
-            </div>
+            {/* Notification Alert Status (Staff roles only) */}
+            {userRole !== "FAN" && (
+              <div className="relative">
+                <button 
+                  aria-label="View alerts notification center"
+                  className="p-2 rounded-lg border border-border hover:bg-secondary text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition relative"
+                >
+                  <Bell className="w-4 h-4" />
+                  {activeAlertsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* User Profile dropdown */}
             <div className="relative">
@@ -273,4 +294,5 @@ export const DashboardLayout: React.FC = () => {
     </div>
   );
 };
+
 export default DashboardLayout;

@@ -1,7 +1,7 @@
 /**
  * StadiumOS AI — React Bootstrap entry.
  * 
- * Configures QueryClient and registers the router layout endpoints.
+ * Configures QueryClient and registers the router layout endpoints with Role-Based Guards.
  */
 
 import React from "react";
@@ -22,6 +22,7 @@ const DigitalTwinMap = lazy(() => import("./pages/DigitalTwinMap"));
 const IncidentTriage = lazy(() => import("./pages/IncidentTriage"));
 const GateControls = lazy(() => import("./pages/GateControls"));
 const VolunteerRegistry = lazy(() => import("./pages/VolunteerRegistry"));
+const FanPortal = lazy(() => import("./pages/FanPortal"));
 
 // Loading spinner fallback component
 const PageLoader = () => (
@@ -40,7 +41,7 @@ const queryClient = new QueryClient({
   }
 });
 
-// 2. Define Router tree with Protected Route boundaries
+// 2. Define Router tree with Protected Route boundaries and Role limitations
 const router = createBrowserRouter([
   {
     path: "/",
@@ -61,41 +62,61 @@ const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <Overview />
-          </Suspense>
+          <ProtectedRoute allowedRoles={["ADMIN", "OPERATOR", "VOLUNTEER"]}>
+            <Suspense fallback={<PageLoader />}>
+              <Overview />
+            </Suspense>
+          </ProtectedRoute>
         )
       },
       {
         path: "map",
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <DigitalTwinMap />
-          </Suspense>
+          <ProtectedRoute allowedRoles={["ADMIN", "OPERATOR"]}>
+            <Suspense fallback={<PageLoader />}>
+              <DigitalTwinMap />
+            </Suspense>
+          </ProtectedRoute>
         )
       },
       {
         path: "incidents",
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <IncidentTriage />
-          </Suspense>
+          <ProtectedRoute allowedRoles={["ADMIN", "OPERATOR"]}>
+            <Suspense fallback={<PageLoader />}>
+              <IncidentTriage />
+            </Suspense>
+          </ProtectedRoute>
         )
       },
       {
         path: "gates",
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <GateControls />
-          </Suspense>
+          <ProtectedRoute allowedRoles={["ADMIN", "OPERATOR"]}>
+            <Suspense fallback={<PageLoader />}>
+              <GateControls />
+            </Suspense>
+          </ProtectedRoute>
         )
       },
       {
         path: "volunteers",
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <VolunteerRegistry />
-          </Suspense>
+          <ProtectedRoute allowedRoles={["ADMIN", "OPERATOR", "VOLUNTEER"]}>
+            <Suspense fallback={<PageLoader />}>
+              <VolunteerRegistry />
+            </Suspense>
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "fan",
+        element: (
+          <ProtectedRoute allowedRoles={["FAN"]}>
+            <Suspense fallback={<PageLoader />}>
+              <FanPortal />
+            </Suspense>
+          </ProtectedRoute>
         )
       },
       {
