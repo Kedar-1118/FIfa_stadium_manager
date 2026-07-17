@@ -181,6 +181,7 @@ def create_app() -> FastAPI:
     from src.interfaces.api.v1.volunteer_router import router as volunteer_router
     from src.interfaces.api.v1.incident_router import router as incident_router
     from src.interfaces.api.v1.crowd_router import router as crowd_router
+    from src.interfaces.api.v1.agent_router import router as agent_router
 
     # Register the auth router (maps endpoints to /api/v1/auth/*)
     app.include_router(auth_router, prefix="/api/v1")
@@ -199,6 +200,9 @@ def create_app() -> FastAPI:
 
     # Register the crowd telemetry router (maps endpoints to /api/v1/crowd/*)
     app.include_router(crowd_router, prefix="/api/v1")
+
+    # Register the agent recommendations router (maps endpoints to /api/v1/agents/*)
+    app.include_router(agent_router, prefix="/api/v1")
 
     return app
 
