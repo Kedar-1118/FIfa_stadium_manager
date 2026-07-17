@@ -39,13 +39,15 @@ export class PrismaIncidentRepository implements IIncidentRepository {
     return model ? this._toDomain(model) : null;
   }
 
-  public async listActive(): Promise<Incident[]> {
+  public async listActive(limit?: number, offset?: number): Promise<Incident[]> {
     const models = await prisma.incident.findMany({
       where: {
         status: {
           not: IncidentStatus.RESOLVED
         }
       },
+      take: limit,
+      skip: offset,
       orderBy: { created_at: "desc" }
     });
     return models.map((m) => this._toDomain(m));

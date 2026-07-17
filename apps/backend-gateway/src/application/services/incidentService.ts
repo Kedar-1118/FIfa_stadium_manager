@@ -70,8 +70,8 @@ export class IncidentService {
     return incident;
   }
 
-  public async listActiveIncidents(): Promise<Incident[]> {
-    return await this.incidentRepo.listActive();
+  public async listActiveIncidents(limit?: number, offset?: number): Promise<Incident[]> {
+    return await this.incidentRepo.listActive(limit, offset);
   }
 
   public async assignVolunteer(id: string, req: IncidentAssign): Promise<Incident> {

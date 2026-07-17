@@ -44,7 +44,9 @@ router.get(
   requireRole(UserRole.OPERATOR),
   async (req: any, res: Response, next: NextFunction) => {
     try {
-      const list = await incidentService.listActiveIncidents();
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
+      const list = await incidentService.listActiveIncidents(limit, offset);
       res.status(200).json(list);
     } catch (err) {
       next(err);
