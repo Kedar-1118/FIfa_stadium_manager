@@ -175,16 +175,10 @@ def create_app() -> FastAPI:
     # -------------------------------------------------------------------------
     # 4. Mount API Routers (added incrementally in Modules 6-14)
     # -------------------------------------------------------------------------
-    # Router registration will be added here as each module is implemented:
-    # - /api/v1/auth      (Module 6)
-    # - /api/v1/stadiums   (Module 7)
-    # - /api/v1/gates      (Module 8)
-    # - /api/v1/volunteers (Module 9)
-    # - /api/v1/incidents  (Module 10)
-    # - /api/v1/crowd      (Module 11)
-    # - /api/v1/agents     (Module 12)
-    # - /ws                (Module 13)
-    # - /health, /ready    (Module 14)
+    from src.interfaces.api.v1.auth_router import router as auth_router
+
+    # Register the auth router (maps endpoints to /api/v1/auth/*)
+    app.include_router(auth_router, prefix="/api/v1")
 
     return app
 
