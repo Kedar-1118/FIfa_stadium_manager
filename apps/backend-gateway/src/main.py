@@ -24,43 +24,30 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
 
 from src.config import get_settings
+from src.infrastructure.logging.logger import configure_logging
+from src.infrastructure.database.engine import get_engine, dispose_engine
+from src.infrastructure.cache.redis_client import get_redis_client, close_redis
+from src.interfaces.middleware.request_logging import RequestLoggingMiddleware
+from src.interfaces.middleware.error_handler import register_error_handlers
+from src.interfaces.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
+
+# Run structured logging setup immediately on server boot
+configure_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Manage application startup and shutdown lifecycle.
-
-    This async context manager runs once when the server starts and yields
-    control to the application. On shutdown (or SIGTERM), it executes the
-    cleanup logic after the yield.
-
-    Startup responsibilities:
-        - Initialize the async database engine and verify connectivity.
-        - Initialize the Redis connection pool and verify connectivity.
-        - Log the application configuration (excluding secrets).
-
-    Shutdown responsibilities:
-        - Close the database engine and drain the connection pool.
-        - Close the Redis connection pool.
-
-    Args:
-        app: The FastAPI application instance (injected by the framework).
-
-    Yields:
-        None: Control is yielded to the running application between
-        startup and shutdown phases.
     """
     settings = get_settings()
+    import structlog
+    logger = structlog.get_logger("lifespan")
 
     # --- Startup Phase ---
-    # Infrastructure initialization will be added in Modules 3 and 4
-    # when the database engine and Redis client are implemented.
-    import structlog
-
-    logger = structlog.get_logger()
     await logger.ainfo(
         "application_starting",
         app_name=settings.app_name,
@@ -69,30 +56,44 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         debug=settings.debug,
     )
 
+    # 1. Verify PostgreSQL Database connectivity
+    try:
+        engine = get_engine()
+        # Run a simple ping query
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        await logger.ainfo("database_connected_successfully")
+    except Exception as e:
+        await logger.acritical("database_connection_failed", error=str(e))
+        raise e
+
+    # 2. Verify Redis Connectivity
+    try:
+        redis_client = get_redis_client()
+        await redis_client.ping()
+        await logger.ainfo("redis_connected_successfully")
+    except Exception as e:
+        await logger.acritical("redis_connection_failed", error=str(e))
+        raise e
+
     yield  # Application is running and serving requests
 
     # --- Shutdown Phase ---
     await logger.ainfo("application_shutting_down")
+    # Drain database pools
+    await dispose_engine()
+    # Close Redis client connections
+    await close_redis()
+    await logger.ainfo("application_shutdown_completed")
 
 
 def create_app() -> FastAPI:
     """
     Construct and return a fully configured FastAPI application.
-
-    This factory function assembles the application by:
-        1. Loading validated settings from the environment.
-        2. Creating the FastAPI instance with OpenAPI metadata.
-        3. Registering CORS middleware.
-        4. Mounting all versioned API routers.
-
-    Returns:
-        FastAPI: A configured, ready-to-serve application instance.
     """
     settings = get_settings()
 
-    # -------------------------------------------------------------------------
-    # 1. Create the FastAPI instance with rich OpenAPI documentation
-    # -------------------------------------------------------------------------
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
@@ -105,7 +106,6 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if not settings.is_production else None,
         openapi_url="/openapi.json" if not settings.is_production else None,
         lifespan=lifespan,
-        # OpenAPI metadata for documentation and client generation
         openapi_tags=[
             {
                 "name": "Auth",
@@ -142,6 +142,12 @@ def create_app() -> FastAPI:
         ],
     )
 
+    # Attach the slowapi limiter to the application state
+    app.state.limiter = limiter
+
+    # Add slowapi's RateLimitExceeded custom exception handler
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
     # -------------------------------------------------------------------------
     # 2. Register CORS Middleware
     # -------------------------------------------------------------------------
@@ -158,12 +164,13 @@ def create_app() -> FastAPI:
     )
 
     # -------------------------------------------------------------------------
-    # 3. Register Middleware (added in Module 5)
+    # 3. Register Middleware
     # -------------------------------------------------------------------------
-    # Middleware registration will be added here:
-    # - Request logging middleware (structlog correlation IDs)
-    # - Rate limiting middleware (slowapi)
-    # - Global exception handler middleware
+    # Register request logging middleware
+    app.add_middleware(RequestLoggingMiddleware)
+
+    # Register global exception handlers
+    register_error_handlers(app)
 
     # -------------------------------------------------------------------------
     # 4. Mount API Routers (added incrementally in Modules 6-14)
