@@ -1,0 +1,135 @@
+# =============================================================================
+# StadiumOS AI — Local Development Docker Compose
+# =============================================================================
+# Spins up the complete local development stack:
+#   - PostgreSQL 16 (with TimescaleDB extension for time-series support)
+#   - Redis 7 (with persistence disabled for fast local dev cycles)
+#   - Backend Gateway (FastAPI app with hot-reload via Uvicorn --reload)
+#
+# Usage:
+#   docker compose up -d           # Start all services in background
+#   docker compose logs -f api     # Tail API logs
+#   docker compose down -v         # Stop and remove all containers + volumes
+#
+# Design Decisions:
+#   - Named volumes are used for PostgreSQL data to persist across restarts.
+#   - The API service mounts the source code as a bind mount so file changes
+#     trigger Uvicorn's hot-reload without rebuilding the image.
+#   - Health checks are defined on infrastructure services so the API container
+#     waits for PostgreSQL and Redis to be fully ready before starting.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 with TimescaleDB Extension
+  # ---------------------------------------------------------------------------
+  # TimescaleDB extends PostgreSQL with hypertable partitioning for
+  # high-velocity telemetry ingestion (turnstile metrics, crowd density).
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: stadiumos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stadiumos
+      POSTGRES_PASSWORD: stadiumos_secret
+      POSTGRES_DB: stadiumos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stadiumos -d stadiumos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 — In-Memory Cache & Spatial Index
+  # ---------------------------------------------------------------------------
+  # Used for: Digital Twin live state cache, volunteer geolocation indexing
+  # (GEOADD/GEORADIUS), semantic LLM response caching, and pub/sub for
+  # WebSocket broadcast fanout.
+  #
+  # Persistence is disabled (--save "") for local development to maximize
+  # write speed. Production Redis uses AOF persistence.
+  redis:
+    image: redis:7-alpine
+    container_name: stadiumos-redis
+    restart: unless-stopped
+    command: redis-server --save "" --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Backend Gateway — FastAPI Application
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stadiumos-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Application
+      APP_NAME: "StadiumOS AI Gateway"
+      APP_ENV: "development"
+      DEBUG: "true"
+
+      # Database — uses the Docker internal network hostname 'postgres'
+      DATABASE_URL: "postgresql+asyncpg://stadiumos:stadiumos_secret@postgres:5432/stadiumos_db"
+      DATABASE_POOL_SIZE: "10"
+      DATABASE_ECHO: "false"
+
+      # Redis — uses the Docker internal network hostname 'redis'
+      REDIS_URL: "redis://redis:6379/0"
+
+      # JWT — development-only secret (overridden in production via secrets manager)
+      JWT_SECRET_KEY: "dev-only-insecure-key-change-in-production-minimum-32-chars"
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+
+      # Rate Limiting
+      RATE_LIMIT_PER_MINUTE: "120"
+
+      # Logging
+      LOG_LEVEL: "DEBUG"
+      LOG_FORMAT: "console"
+
+      # CORS
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
+    volumes:
+      # Bind-mount source code for hot-reload during development.
+      # This overrides the COPY in the Dockerfile, so live edits are
+      # reflected immediately without rebuilding the image.
+      - ./src:/app/src:ro
+      - ./alembic:/app/alembic:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+    # Override the production CMD to enable Uvicorn's --reload flag.
+    command: >
+      uvicorn src.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+# ---------------------------------------------------------------------------
+# Named Volumes
+# ---------------------------------------------------------------------------
+# Named volumes persist data across container restarts. The postgres_data
+# volume ensures that database state survives `docker compose down` unless
+# the -v flag is explicitly passed.
+volumes:
+  postgres_data:
+    driver: local
