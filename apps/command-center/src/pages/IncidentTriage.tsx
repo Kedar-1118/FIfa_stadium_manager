@@ -142,8 +142,16 @@ export const IncidentTriage: React.FC = () => {
             incidents.map((incident) => (
               <article
                 key={incident.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedIncident(incident)}
-                className={`p-5 rounded-xl border transition cursor-pointer flex flex-col gap-4 text-left relative overflow-hidden ${
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedIncident(incident);
+                  }
+                }}
+                className={`p-5 rounded-xl border transition cursor-pointer flex flex-col gap-4 text-left relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary ${
                   selectedIncident?.id === incident.id
                     ? "border-primary bg-primary/5 ring-1 ring-primary/30"
                     : "border-border bg-card hover:bg-secondary/20"

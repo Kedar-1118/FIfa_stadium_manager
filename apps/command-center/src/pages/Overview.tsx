@@ -50,6 +50,22 @@ export const Overview: React.FC = () => {
   const [evacConfirmText, setEvacConfirmText] = useState("");
   const [isEvacuating, setIsEvacuating] = useState(false);
 
+  // Keyboard accessibility: dismiss evacuation modal on Escape key down
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowEvacModal(false);
+        setEvacConfirmText("");
+      }
+    };
+    if (showEvacModal) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showEvacModal]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
