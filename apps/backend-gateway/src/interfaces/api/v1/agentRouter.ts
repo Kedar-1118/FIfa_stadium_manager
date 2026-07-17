@@ -100,4 +100,4 @@ router.post(
 );
 
 export { router as agentRouter };
-export default agentRouter;
+export default router;

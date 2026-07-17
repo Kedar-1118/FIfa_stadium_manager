@@ -63,4 +63,4 @@ router.patch(
 );
 
 export { router as gateRouter };
-export default gateRouter;
+export default router;

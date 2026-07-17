@@ -64,4 +64,4 @@ router.get(
 );
 
 export { router as healthRouter };
-export default healthRouter;
+export default router;

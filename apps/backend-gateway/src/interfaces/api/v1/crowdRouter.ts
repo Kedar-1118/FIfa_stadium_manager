@@ -85,4 +85,4 @@ router.get(
 );
 
 export { router as crowdRouter };
-export default crowdRouter;
+export default router;

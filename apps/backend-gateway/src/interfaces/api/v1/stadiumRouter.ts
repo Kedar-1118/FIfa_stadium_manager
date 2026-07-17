@@ -82,4 +82,4 @@ router.get(
 );
 
 export { router as stadiumRouter };
-export default stadiumRouter;
+export default router;

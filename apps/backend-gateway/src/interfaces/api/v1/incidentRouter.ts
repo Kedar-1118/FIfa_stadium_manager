@@ -114,4 +114,4 @@ router.patch(
 );
 
 export { router as incidentRouter };
-export default incidentRouter;
+export default router;
