@@ -182,6 +182,8 @@ def create_app() -> FastAPI:
     from src.interfaces.api.v1.incident_router import router as incident_router
     from src.interfaces.api.v1.crowd_router import router as crowd_router
     from src.interfaces.api.v1.agent_router import router as agent_router
+    from src.interfaces.api.v1.websocket_router import router as websocket_router
+    from src.interfaces.api.v1.health_router import router as health_router
 
     # Register the auth router (maps endpoints to /api/v1/auth/*)
     app.include_router(auth_router, prefix="/api/v1")
@@ -203,6 +205,12 @@ def create_app() -> FastAPI:
 
     # Register the agent recommendations router (maps endpoints to /api/v1/agents/*)
     app.include_router(agent_router, prefix="/api/v1")
+
+    # Register WebSocket router (maps connection endpoint to /ws)
+    app.include_router(websocket_router)
+
+    # Register health checks (maps /health and /ready endpoints to root)
+    app.include_router(health_router)
 
     return app
 
