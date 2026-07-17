@@ -80,13 +80,11 @@ services:
     environment:
       # Application
       APP_NAME: "StadiumOS AI Gateway"
-      APP_ENV: "development"
-      DEBUG: "true"
+      NODE_ENV: "development"
+      PORT: "8000"
 
       # Database — uses the Docker internal network hostname 'postgres'
-      DATABASE_URL: "postgresql+asyncpg://stadiumos:stadiumos_secret@postgres:5432/stadiumos_db"
-      DATABASE_POOL_SIZE: "10"
-      DATABASE_ECHO: "false"
+      DATABASE_URL: "postgresql://stadiumos:stadiumos_secret@postgres:5432/stadiumos_db?schema=public"
 
       # Redis — uses the Docker internal network hostname 'redis'
       REDIS_URL: "redis://redis:6379/0"
@@ -99,7 +97,7 @@ services:
       RATE_LIMIT_PER_MINUTE: "120"
 
       # Logging
-      LOG_LEVEL: "DEBUG"
+      LOG_LEVEL: "debug"
       LOG_FORMAT: "console"
 
       # CORS
@@ -109,18 +107,9 @@ services:
       AGENT_MESH_URL: "http://agent-mesh:8001/api/v1/agents"
     volumes:
       # Bind-mount source code for hot-reload during development.
-      # This overrides the COPY in the Dockerfile, so live edits are
-      # reflected immediately without rebuilding the image.
-      - ./src:/app/src:ro
-      - ./alembic:/app/alembic:ro
-      - ./alembic.ini:/app/alembic.ini:ro
-    # Override the production CMD to enable Uvicorn's --reload flag.
-    command: >
-      uvicorn src.main:app
-      --host 0.0.0.0
-      --port 8000
-      --reload
-      --reload-dir /app/src
+      - ./src:/usr/src/app/src
+      - ./prisma:/usr/src/app/prisma
+    command: npm run dev
     depends_on:
       postgres:
         condition: service_healthy
