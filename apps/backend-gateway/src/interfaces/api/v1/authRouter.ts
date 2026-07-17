@@ -82,4 +82,4 @@ router.get(
 );
 
 export { router as authRouter };
-export default authRouter;
+export default router;

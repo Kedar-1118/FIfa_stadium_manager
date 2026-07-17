@@ -7,9 +7,9 @@
 
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
-import { verifyToken } from "../../infrastructure/security/securityHelpers";
-import { getRedisClient } from "../../infrastructure/cache/redisClient";
-import { logger } from "../../infrastructure/logging/logger";
+import { verifyToken } from "../../../infrastructure/security/securityHelpers";
+import { getRedisClient } from "../../../infrastructure/cache/redisClient";
+import { logger } from "../../../infrastructure/logging/logger";
 
 class WebSocketConnectionManager {
   private wss: WebSocket.Server | null = null;

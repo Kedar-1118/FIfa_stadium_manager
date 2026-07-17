@@ -19,7 +19,7 @@ import {
 } from "../state/graphState";
 
 // Define the LangGraph channels and merge/reducer policies
-const GraphStateAnnotation = Annotation.define<StadiumOSGraphState>({
+const GraphStateAnnotation = Annotation.Root<StadiumOSGraphState>({
   incident_id: {
     reducer: (oldVal, newVal) => newVal,
     default: () => ""
