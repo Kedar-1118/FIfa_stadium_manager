@@ -7,7 +7,7 @@
 
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
-import { verifyToken } from "../../infrastructure/security/rbac";
+import { verifyToken } from "../../infrastructure/security/securityHelpers";
 import { getRedisClient } from "../../infrastructure/cache/redisClient";
 import { logger } from "../../infrastructure/logging/logger";
 
