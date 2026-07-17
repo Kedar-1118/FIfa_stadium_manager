@@ -44,11 +44,11 @@ export const DashboardLayout: React.FC = () => {
   const user = JSON.parse(localStorage.getItem("stadiumos-user") || "{}");
 
   const sidebarLinks: SidebarItem[] = [
-    { name: "Overview", path: "/", icon: LayoutDashboard },
-    { name: "Digital Twin Map", path: "/map", icon: Map },
-    { name: "Incident Triage", path: "/incidents", icon: AlertTriangle, badgeKey: "alerts" },
-    { name: "Gate Controls", path: "/gates", icon: DoorOpen },
-    { name: "Volunteer Registry", path: "/volunteers", icon: Users }
+    { name: "Overview", path: "/dashboard", icon: LayoutDashboard },
+    { name: "Digital Twin Map", path: "/dashboard/map", icon: Map },
+    { name: "Incident Triage", path: "/dashboard/incidents", icon: AlertTriangle, badgeKey: "alerts" },
+    { name: "Gate Controls", path: "/dashboard/gates", icon: DoorOpen },
+    { name: "Volunteer Registry", path: "/dashboard/volunteers", icon: Users }
   ];
 
   // Fetch active stadiums list & alert counts on mount
