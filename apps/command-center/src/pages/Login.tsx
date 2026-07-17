@@ -15,7 +15,7 @@ export const Login: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("OPERATOR");
+  const [role, setRole] = useState("FAN");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -189,29 +189,7 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* Role selection dropdown (Sign Up Only) */}
-          {activeTab === "signup" && (
-            <div className="space-y-2 animate-fade-in">
-              <label htmlFor="role-select" className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-                Assign System Role
-              </label>
-              <div className="relative">
-                <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <select
-                  id="role-select"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  disabled={loading}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-800 bg-slate-950/50 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition disabled:opacity-50 cursor-pointer"
-                >
-                  <option value="ADMIN" className="bg-slate-900">Administrator</option>
-                  <option value="OPERATOR" className="bg-slate-900">Operator Manager</option>
-                  <option value="VOLUNTEER" className="bg-slate-900">Volunteer Responder</option>
-                  <option value="FAN" className="bg-slate-900">Fan Access</option>
-                </select>
-              </div>
-            </div>
-          )}
+          {/* Role selection dropdown removed - defaults to FAN */}
 
           {/* Submit Action Button */}
           <button

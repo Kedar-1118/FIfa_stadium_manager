@@ -18,6 +18,7 @@ import { EntityNotFoundError, BusinessRuleViolationError } from "../../domain/ex
 import { config } from "../../config";
 import { logger } from "../../infrastructure/logging/logger";
 import { prisma } from "../../infrastructure/database/prisma";
+import { getRedisClient } from "../../infrastructure/cache/redisClient";
 
 export class IncidentService {
   private incidentRepo: IIncidentRepository;
@@ -41,19 +42,101 @@ export class IncidentService {
       throw new EntityNotFoundError("Sector", req.sector_id);
     }
 
+    // 1. Check if the reporter is a FAN
+    const reporter = await prisma.user.findUnique({ where: { id: reportedByUserId } });
+    const isFan = reporter?.role === "FAN";
+
+    const isEvacuationType = req.incident_type.toUpperCase().includes("EVACUATION") || 
+                             req.description.toUpperCase().includes("EVACUATE") ||
+                             req.description.toUpperCase().includes("EVACUATION");
+
+    let isFanEvacuation = isFan && isEvacuationType;
+    let descriptionPrefix = isFanEvacuation ? "[UNVERIFIED FAN EVACUATION] " : "";
+    let finalSeverity = isFanEvacuation ? "CRITICAL" : req.severity;
+
     const newIncident = new Incident(
       uuidv4(),
       req.incident_type,
-      req.severity,
-      req.description,
+      // @ts-ignore
+      finalSeverity,
+      descriptionPrefix + req.description,
       new Coordinates(req.latitude, req.longitude),
       req.sector_id,
       reportedByUserId,
       req.gate_id || null
     );
 
-    const saved = await this.incidentRepo.save(newIncident);
+    let saved = await this.incidentRepo.save(newIncident);
     logger.info({ incidentId: saved.id, type: saved.incident_type }, "Incident reported successfully");
+
+    // 2. Perform emergency staff dispatch for fan evacuation report
+    if (isFanEvacuation) {
+      // Find closest AVAILABLE volunteer
+      const availableVolunteers = await prisma.volunteer.findMany({
+        where: { status: "AVAILABLE" }
+      });
+
+      let closestVol = null;
+      let minDistance = Infinity;
+
+      for (const vol of availableVolunteers) {
+        const dx = vol.longitude - req.longitude;
+        const dy = vol.latitude - req.latitude;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestVol = vol;
+        }
+      }
+
+      const redis = getRedisClient();
+
+      if (closestVol) {
+        // Atomically assign closest volunteer to incident
+        await prisma.$transaction([
+          prisma.volunteer.update({
+            where: { id: closestVol.id },
+            data: { status: "ASSIGNED" }
+          }),
+          prisma.incident.update({
+            where: { id: saved.id },
+            data: {
+              status: "ACKNOWLEDGED",
+              assigned_volunteer_id: closestVol.id
+            }
+          })
+        ]);
+
+        // Refresh saved domain entity state
+        const refreshed = await this.incidentRepo.getById(saved.id);
+        if (refreshed) saved = refreshed;
+
+        // Broadcast verification request event
+        await redis.publish(
+          "stadiumos:broadcast",
+          JSON.stringify({
+            event: "EVACUATION_VERIFICATION_DISPATCHED",
+            incident_id: saved.id,
+            sector_name: sector.name,
+            volunteer_name: closestVol.name,
+            message: `⚠️ Fan evacuation report in Sector ${sector.name}. Nearest staff member ${closestVol.name} has been dispatched for verification.`
+          })
+        );
+        logger.info({ incidentId: saved.id, volunteerId: closestVol.id }, "Fan evacuation verification dispatched to nearest volunteer");
+      } else {
+        // No staff available fallback warning
+        await redis.publish(
+          "stadiumos:broadcast",
+          JSON.stringify({
+            event: "EVACUATION_PENDING_VERIFICATION",
+            incident_id: saved.id,
+            sector_name: sector.name,
+            message: `⚠️ Fan evacuation report in Sector ${sector.name}. WARNING: No available staff nearby for automatic verification. Immediate manual dispatch required!`
+          })
+        );
+        logger.warn({ incidentId: saved.id }, "No available staff found for auto-verification dispatch");
+      }
+    }
 
     // Trigger AI Agent Mesh asynchronously if severity requires it
     if (saved.requiresImmediateResponse) {
@@ -83,11 +166,9 @@ export class IncidentService {
       throw new EntityNotFoundError("Volunteer", req.volunteer_id);
     }
 
-    // Allocate volunteer status checks
     volunteer.assignToIncident();
     incident.assignVolunteer(volunteer.id);
     
-    // Execute atomic transaction update across tables
     const saved = await prisma.$transaction(async (tx) => {
       await tx.volunteer.update({
         where: { id: volunteer.id },
@@ -106,13 +187,58 @@ export class IncidentService {
     const domainIncident = await this.incidentRepo.getById(saved.id);
     if (!domainIncident) throw new Error("Failed to load incident after transaction commit.");
     
-    logger.info({ incidentId: domainIncident.id, volunteerId: volunteer.id }, "Volunteer assigned atomically inside database transaction");
+    logger.info({ incidentId: domainIncident.id, volunteerId: volunteer.id }, "Volunteer assigned atomically");
     return domainIncident;
   }
 
   public async resolveIncident(id: string, req: IncidentResolve): Promise<Incident> {
     const incident = await this.getIncident(id);
     
+    // Check if we are verifying an unverified fan evacuation report
+    const isUnverifiedEvacuation = incident.description.startsWith("[UNVERIFIED FAN EVACUATION]");
+    let volunteerName = "Staff Operations";
+
+    if (incident.assigned_volunteer_id) {
+      const vol = await prisma.volunteer.findUnique({ where: { id: incident.assigned_volunteer_id } });
+      if (vol) {
+        volunteerName = vol.name;
+      }
+    }
+
+    if (isUnverifiedEvacuation) {
+      // Evacuation is verified and resolved/acknowledged!
+      incident.description = incident.description.replace("[UNVERIFIED FAN EVACUATION]", `[VERIFIED FAN EVACUATION BY STAFF: ${volunteerName}]`);
+      
+      // 1. Open all gates in the affected sector
+      await prisma.gate.updateMany({
+        where: { sector_id: incident.sector_id },
+        data: { status: "OPEN" }
+      });
+
+      // Sync updated gate status to Redis
+      const sectorGates = await prisma.gate.findMany({ where: { sector_id: incident.sector_id } });
+      const redis = getRedisClient();
+      for (const gate of sectorGates) {
+        await redis.set(`gate:status:${gate.gate_code}`, "OPEN");
+      }
+
+      // Fetch sector details for message
+      const sector = await this.stadiumRepo.getSectorById(incident.sector_id);
+      const sectorName = sector ? sector.name : incident.sector_id;
+
+      // 2. Publish evacuation alarm verified alert
+      await redis.publish(
+        "stadiumos:broadcast",
+        JSON.stringify({
+          event: "EVACUATION_ALARM_VERIFIED",
+          incident_id: incident.id,
+          sector_name: sectorName,
+          message: `🚨 CRITICAL: EVACUATION ALARM VERIFIED by staff member ${volunteerName} in Sector ${sectorName}! Directing all gates to OPEN immediately. Authorities notified.`
+        })
+      );
+      logger.info({ incidentId: incident.id }, "Evacuation incident verified by staff. Sector gates automatically set to OPEN.");
+    }
+
     incident.resolve(req.resolution_notes);
 
     // Free volunteer status if linked
@@ -131,6 +257,52 @@ export class IncidentService {
 
   public async updateIncidentStatus(id: string, req: IncidentStatusUpdate): Promise<Incident> {
     const incident = await this.getIncident(id);
+    
+    // Check if we are verifying an unverified fan evacuation report (acknowledging or in_progress status update)
+    const isUnverifiedEvacuation = incident.description.startsWith("[UNVERIFIED FAN EVACUATION]");
+    const isVerifyingStatus = req.status === "IN_PROGRESS" || req.status === "RESOLVED";
+
+    if (isUnverifiedEvacuation && isVerifyingStatus) {
+      let volunteerName = "Staff Operations";
+      if (incident.assigned_volunteer_id) {
+        const vol = await prisma.volunteer.findUnique({ where: { id: incident.assigned_volunteer_id } });
+        if (vol) {
+          volunteerName = vol.name;
+        }
+      }
+
+      // Evacuation verified!
+      incident.description = incident.description.replace("[UNVERIFIED FAN EVACUATION]", `[VERIFIED FAN EVACUATION BY STAFF: ${volunteerName}]`);
+      
+      // 1. Open all gates in the affected sector
+      await prisma.gate.updateMany({
+        where: { sector_id: incident.sector_id },
+        data: { status: "OPEN" }
+      });
+
+      // Sync updated gate status to Redis
+      const sectorGates = await prisma.gate.findMany({ where: { sector_id: incident.sector_id } });
+      const redis = getRedisClient();
+      for (const gate of sectorGates) {
+        await redis.set(`gate:status:${gate.gate_code}`, "OPEN");
+      }
+
+      const sector = await this.stadiumRepo.getSectorById(incident.sector_id);
+      const sectorName = sector ? sector.name : incident.sector_id;
+
+      // 2. Publish evacuation alarm verified alert
+      await redis.publish(
+        "stadiumos:broadcast",
+        JSON.stringify({
+          event: "EVACUATION_ALARM_VERIFIED",
+          incident_id: incident.id,
+          sector_name: sectorName,
+          message: `🚨 CRITICAL: EVACUATION ALARM VERIFIED by staff member ${volunteerName} in Sector ${sectorName}! Directing all gates to OPEN immediately. Authorities notified.`
+        })
+      );
+      logger.info({ incidentId: incident.id }, "Evacuation incident status verified by staff. Sector gates set to OPEN.");
+    }
+
     incident.transitionTo(req.status);
     return await this.incidentRepo.save(incident);
   }
@@ -166,10 +338,8 @@ export class IncidentService {
 
       const data = response.data;
       if (data && data.success && data.recommendations) {
-        // Save recommendations to incident entity
         const recText = JSON.stringify(data.recommendations);
         const freshIncident = await this.getIncident(incident.id);
-        // Overwrite recommendation text field directly
         // @ts-ignore
         freshIncident.ai_recommendation = recText;
         await this.incidentRepo.save(freshIncident);
@@ -186,9 +356,6 @@ export class IncidentService {
     }
   }
 
-  /**
-   * Rule-based fallback recommendations generator.
-   */
   private getRuleBasedRecommendationFallback(incident: Incident): any[] {
     const recs: any[] = [];
     const isMedical = incident.incident_type.toLowerCase().includes("medical") || incident.description.toLowerCase().includes("medical");
