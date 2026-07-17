@@ -73,3 +73,24 @@ Once booted, the following services are live:
 - **React Command Center Dashboard**: [http://localhost:3000](http://localhost:3000) (Login: use registered operator accounts)
 - **NodeJS Gateway API**: [http://localhost:8000](http://localhost:8000) (API Docs: `/docs`)
 - **Agent Mesh Health probe**: [http://localhost:8001/health](http://localhost:8001/health)
+
+---
+
+## 4. Running the Test Suites
+
+To execute the Jest integration test suites and verify performance/security rules:
+
+### 1. Run Backend-Gateway tests
+```bash
+cd apps/backend-gateway
+npm test
+```
+*Executes `auth.spec.ts`, `gates.spec.ts`, and `incidents.spec.ts` using in-memory Redis mocks.*
+
+### 2. Run Agent-Mesh state graph tests
+```bash
+cd apps/agent-mesh
+npm test
+```
+*Verifies node traversals, LLM schemas matching, and LangGraph outputs format.*
+
