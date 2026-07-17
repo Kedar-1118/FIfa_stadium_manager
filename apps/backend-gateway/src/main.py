@@ -177,12 +177,16 @@ def create_app() -> FastAPI:
     # -------------------------------------------------------------------------
     from src.interfaces.api.v1.auth_router import router as auth_router
     from src.interfaces.api.v1.stadium_router import router as stadium_router
+    from src.interfaces.api.v1.gate_router import router as gate_router
 
     # Register the auth router (maps endpoints to /api/v1/auth/*)
     app.include_router(auth_router, prefix="/api/v1")
 
     # Register the stadium router (maps endpoints to /api/v1/stadiums/*)
     app.include_router(stadium_router, prefix="/api/v1")
+
+    # Register the gate router (maps endpoints to /api/v1/gates/* and /api/v1/stadiums/sectors/*/gates)
+    app.include_router(gate_router, prefix="/api/v1")
 
     return app
 

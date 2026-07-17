@@ -145,4 +145,4 @@ class GateService:
         await self.gate_repo.delete(gate_id)
         await self.cache.delete(f"gate:{gate_id}:status")
         await logger.ainfo("gate_deleted", gate_id=str(gate_id))
- Greenway
+
