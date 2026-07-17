@@ -14,6 +14,8 @@ import { requestLoggingMiddleware } from "./interfaces/middleware/requestLogging
 import { errorHandlerMiddleware } from "./interfaces/middleware/errorHandler";
 import { defaultRateLimiter } from "./interfaces/middleware/rateLimiter";
 import { wsConnectionManager } from "./interfaces/api/v1/websocketRouter";
+import { prisma } from "./infrastructure/database/prisma";
+import { hashPassword } from "./infrastructure/security/securityHelpers";
 
 // Versioned routers imports
 import { authRouter } from "./interfaces/api/v1/authRouter";
@@ -58,6 +60,24 @@ wsConnectionManager.initialize(server);
 // Start server listening
 server.listen(config.port, () => {
   logger.info(`${config.appName} listening on port ${config.port} in ${config.nodeEnv} mode`);
+  
+  // Auto-seed default credentials
+  (async () => {
+    const adminEmail = "admin@stadiumos.com";
+    const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
+    if (!existing) {
+      const hashedPassword = await hashPassword("password123");
+      await prisma.user.create({
+        data: {
+          email: adminEmail,
+          hashed_password: hashedPassword,
+          role: "ADMIN",
+          is_active: true
+        }
+      });
+      logger.info(`Default administrator user seeded: ${adminEmail} / password123`);
+    }
+  })().catch(err => logger.error("Startup seeding failed:", err));
 });
 
 export default server;
