@@ -8,7 +8,7 @@ import { Incident } from "../../domain/entities/incident";
 
 export interface IIncidentRepository {
   getById(id: string): Promise<Incident | null>;
-  listActive(): Promise<Incident[]>;
+  listActive(limit?: number, offset?: number): Promise<Incident[]>;
   listBySector(sectorId: string): Promise<Incident[]>;
   save(incident: Incident): Promise<Incident>;
   delete(id: string): Promise<void>;

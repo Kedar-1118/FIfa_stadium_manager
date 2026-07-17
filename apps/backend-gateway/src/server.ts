@@ -25,10 +25,13 @@ import { crowdRouter } from "./interfaces/api/v1/crowdRouter";
 import { agentRouter } from "./interfaces/api/v1/agentRouter";
 import { healthRouter } from "./interfaces/api/v1/healthRouter";
 
+import compression from "compression";
+
 const app = express();
 const server = http.createServer(app);
 
 // 1. Cross-Cutting Concerns & Security Headers
+app.use(compression()); // Compress all payloads
 app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware);

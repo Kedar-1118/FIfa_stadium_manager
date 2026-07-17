@@ -8,16 +8,26 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createBrowserRouter, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Suspense, lazy } from "react";
 import Login from "./pages/Login";
-import Overview from "./pages/Overview";
-import DigitalTwinMap from "./pages/DigitalTwinMap";
-import IncidentTriage from "./pages/IncidentTriage";
-import GateControls from "./pages/GateControls";
-import VolunteerRegistry from "./pages/VolunteerRegistry";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import WebSocketProvider from "./components/auth/WebSocketProvider";
 import "./index.css";
+
+// Lazy-load sub-views to optimize initial dashboard bundle size
+const Overview = lazy(() => import("./pages/Overview"));
+const DigitalTwinMap = lazy(() => import("./pages/DigitalTwinMap"));
+const IncidentTriage = lazy(() => import("./pages/IncidentTriage"));
+const GateControls = lazy(() => import("./pages/GateControls"));
+const VolunteerRegistry = lazy(() => import("./pages/VolunteerRegistry"));
+
+// Loading spinner fallback component
+const PageLoader = () => (
+  <div className="h-64 w-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
+    Loading CommandCenter view...
+  </div>
+);
 
 // 1. Initialize TanStack React Query cache client
 const queryClient = new QueryClient({
@@ -45,23 +55,43 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Overview />
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Overview />
+          </Suspense>
+        )
       },
       {
         path: "map",
-        element: <DigitalTwinMap />
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <DigitalTwinMap />
+          </Suspense>
+        )
       },
       {
         path: "incidents",
-        element: <IncidentTriage />
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <IncidentTriage />
+          </Suspense>
+        )
       },
       {
         path: "gates",
-        element: <GateControls />
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <GateControls />
+          </Suspense>
+        )
       },
       {
         path: "volunteers",
-        element: <VolunteerRegistry />
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <VolunteerRegistry />
+          </Suspense>
+        )
       },
       {
         path: "*",
