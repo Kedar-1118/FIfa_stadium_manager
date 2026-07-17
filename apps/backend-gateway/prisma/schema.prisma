@@ -1,0 +1,179 @@
+// =============================================================================
+// StadiumOS AI Gateway — Prisma DDL Schema
+// =============================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------------------------------------------------------
+// Database Enums
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VOLUNTEER
+  FAN
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  REPORTED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+}
+
+enum GateStatus {
+  OPEN
+  CLOSED
+  RESTRICTED
+  CONGESTED
+  MAINTENANCE
+}
+
+enum VolunteerStatus {
+  AVAILABLE
+  ASSIGNED
+  ON_BREAK
+  OFF_DUTY
+}
+
+// -----------------------------------------------------------------------------
+// Database Models
+// -----------------------------------------------------------------------------
+
+model User {
+  id              String      @id @default(uuid()) @db.Uuid
+  email           String      @unique @db.VarChar(320)
+  hashed_password String      @db.VarChar(128)
+  role            UserRole    @default(FAN)
+  is_active       Boolean     @default(true)
+  created_at      DateTime    @default(now()) @db.Timestamptz
+  updated_at      DateTime    @updatedAt @db.Timestamptz
+
+  // Relationships
+  volunteer       Volunteer?
+  reported_incidents Incident[] @relation("Reporter")
+
+  @@map("users")
+}
+
+model Stadium {
+  id             String      @id @default(uuid()) @db.Uuid
+  name           String      @unique @db.VarChar(255)
+  city           String      @db.VarChar(255)
+  country        String      @db.VarChar(100)
+  latitude       Float
+  longitude      Float
+  total_capacity Int
+  timezone       String      @default("UTC") @db.VarChar(50)
+  created_at     DateTime    @default(now()) @db.Timestamptz
+  updated_at     DateTime    @updatedAt @db.Timestamptz
+
+  // Relationships
+  sectors        Sector[]
+
+  @@map("stadiums")
+}
+
+model Sector {
+  id                         String      @id @default(uuid()) @db.Uuid
+  stadium_id                 String      @db.Uuid
+  name                       String      @db.VarChar(255)
+  max_capacity               Int
+  warning_threshold_percent  Float       @default(80.0)
+  critical_threshold_percent Float       @default(95.0)
+  centroid_latitude          Float
+  centroid_longitude         Float
+  is_accessible              Boolean     @default(false)
+  created_at                 DateTime    @default(now()) @db.Timestamptz
+  updated_at                 DateTime    @updatedAt @db.Timestamptz
+
+  // Relationships
+  stadium                    Stadium     @relation(fields: [stadium_id], references: [id], onDelete: Cascade)
+  gates                      Gate[]
+  volunteers                 Volunteer[]
+  incidents                  Incident[]
+
+  @@map("sectors")
+}
+
+model Gate {
+  id               String      @id @default(uuid()) @db.Uuid
+  sector_id        String      @db.Uuid
+  gate_code        String      @unique @db.VarChar(50)
+  status           GateStatus  @default(CLOSED)
+  latitude         Float
+  longitude        Float
+  is_bidirectional Boolean     @default(true)
+  created_at       DateTime    @default(now()) @db.Timestamptz
+  updated_at       DateTime    @updatedAt @db.Timestamptz
+
+  // Relationships
+  sector           Sector      @relation(fields: [sector_id], references: [id], onDelete: Cascade)
+  incidents        Incident[]
+
+  @@map("gates")
+}
+
+model Volunteer {
+  id                 String          @id @default(uuid()) @db.Uuid
+  user_id            String          @unique @db.Uuid
+  name               String          @db.VarChar(255)
+  phone              String          @db.VarChar(30)
+  status             VolunteerStatus @default(OFF_DUTY)
+  latitude           Float
+  longitude          Float
+  assigned_sector_id String?         @db.Uuid
+  skills             String[]
+  created_at         DateTime        @default(now()) @db.Timestamptz
+  updated_at         DateTime        @updatedAt @db.Timestamptz
+
+  // Relationships
+  user               User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  assigned_sector    Sector?         @relation(fields: [assigned_sector_id], references: [id], onDelete: SetNull)
+  assigned_incidents Incident[]      @relation("Assignee")
+
+  @@map("volunteers")
+}
+
+model Incident {
+  id                    String           @id @default(uuid()) @db.Uuid
+  incident_type         String           @db.VarChar(100)
+  severity              IncidentSeverity @default(LOW)
+  status                IncidentStatus   @default(REPORTED)
+  description           String           @db.Text
+  latitude              Float
+  longitude             Float
+  sector_id             String           @db.Uuid
+  gate_id               String?          @db.Uuid
+  reported_by_user_id   String           @db.Uuid
+  assigned_volunteer_id String?          @db.Uuid
+  ai_recommendation     String?          @db.Text
+  resolution_notes      String?          @db.Text
+  resolved_at           DateTime?        @db.Timestamptz
+  created_at            DateTime         @default(now()) @db.Timestamptz
+  updated_at            DateTime         @updatedAt @db.Timestamptz
+
+  // Relationships
+  sector                Sector           @relation(fields: [sector_id], references: [id], onDelete: Restrict)
+  gate                  Gate?            @relation(fields: [gate_id], references: [id], onDelete: SetNull)
+  reported_by           User             @relation("Reporter", fields: [reported_by_user_id], references: [id], onDelete: Restrict)
+  assigned_volunteer    Volunteer?       @relation("Assignee", fields: [assigned_volunteer_id], references: [id], onDelete: SetNull)
+
+  @@map("incidents")
+}
