@@ -1,32 +1,15 @@
 # =============================================================================
 # StadiumOS AI — AWS EC2 Production Orchestration Compose (Excluding Frontend)
 # =============================================================================
-# Coordinates database, cache, Express gateway, and LangGraph agent mesh on EC2.
+# Coordinates Redis database cache, Express gateway, and LangGraph agent mesh on EC2.
+# PostgreSQL database is hosted externally via Supabase.
 # Frontend command-center dashboard is deployed externally via Vercel.
 # =============================================================================
 
 version: '3.8'
 
 services:
-  # 1. PostgreSQL 16 Database with TimescaleDB Extension
-  postgres:
-    image: timescale/timescaledb:latest-pg16
-    container_name: stadiumos-postgres-prod
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: stadiumos
-      POSTGRES_PASSWORD: stadiumos_secret
-      POSTGRES_DB: stadiumos_db
-    volumes:
-      - postgres_prod_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stadiumos -d stadiumos_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-
-  # 2. Redis 7 — Cache & Spatial Index
+  # 1. Redis 7 — Cache & Spatial Index
   redis:
     image: redis:7-alpine
     container_name: stadiumos-redis-prod
@@ -40,7 +23,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # 3. Express API Gateway Service
+  # 2. Express API Gateway Service
   api:
     build:
       context: ./apps/backend-gateway
@@ -53,20 +36,18 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8000
-      DATABASE_URL: postgresql://stadiumos:stadiumos_secret@postgres:5432/stadiumos_db?schema=public
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       AGENT_MESH_URL: http://agent-mesh:8001/api/v1/agents
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       LOG_LEVEL: info
       LOG_FORMAT: json
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
 
-  # 4. LangGraph Agent Mesh Service
+  # 3. LangGraph Agent Mesh Service
   agent-mesh:
     build:
       context: ./apps/agent-mesh
@@ -85,7 +66,5 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres_prod_data:
-    driver: local
   redis_prod_data:
     driver: local

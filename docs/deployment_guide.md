@@ -57,6 +57,12 @@ Clone your project repository on the EC2 instance and create a `.env` file in th
 NODE_ENV=production
 APP_NAME=StadiumOS-AI
 
+# Supabase Managed PostgreSQL Database Connection String
+DATABASE_URL="postgresql://postgres:[password]@db.soiujmhecvpamhqwrwkg.supabase.co:5432/postgres"
+
+# Redis Cache Connection URI (e.g., Upstash or local)
+REDIS_URL="redis://default:[password]@lustrous-cakes-coat-86494.db.redis.io:10011"
+
 # JWT Config (Lock down with a strong 32-character key for production!)
 JWT_SECRET_KEY=your_super_secure_32_character_secret_jwt_key_here
 INTERNAL_SERVICE_KEY=gateway-agent-secret-handshake-secure-token-here
@@ -71,10 +77,10 @@ OPENAI_API_KEY=sk-proj-YourOpenAIAPIKeyHere
 
 ## 4. Boot Backend Microservices
 
-Run migrations and start up the dockerized PostgreSQL database, Redis spatial cache, API Gateway, and Agent Mesh:
+Deploy the database migrations to your Supabase instance, then start up the Redis cache, API Gateway, and Agent Mesh microservices on EC2:
 
 ```bash
-# Apply Prisma production migrations
+# Apply Prisma migrations directly to your Supabase PostgreSQL instance
 docker compose -f docker-compose.ec2.yml run --rm api npx prisma migrate deploy
 
 # Build and boot services in the background
@@ -104,7 +110,15 @@ docker ps
    sudo rm -f /etc/nginx/sites-enabled/default
    ```
 
-3. **Install Certbot for Let's Encrypt SSL**:
+3. **Configure your Domain DNS (Crucial for Let's Encrypt)**:
+   Let's Encrypt requires a valid domain name pointing to your EC2 instance.
+   - Go to your Domain Registrar / DNS Provider (e.g., Route53, GoDaddy, Cloudflare).
+   - Create an **A Record** pointing your domain (e.g., `api.stadiumos.com` or your own custom domain) to your EC2 Public IP:
+     - **Host/Name**: `api` (or `@` for root domain)
+     - **Type**: `A`
+     - **Value/Points to**: `13.126.215.26`
+
+4. **Install Certbot for Let's Encrypt SSL**:
    ```bash
    sudo apt-get install -y snapd
    sudo snap install core; sudo snap refresh core
@@ -112,14 +126,14 @@ docker ps
    sudo ln -s /snap/bin/certbot /usr/bin/certbot
    ```
 
-4. **Acquire & Apply Certificates**:
-   Run Certbot to automatically acquire certificates and configure SSL protocols in your Nginx config:
+5. **Acquire & Apply Certificates**:
+   Run Certbot to automatically acquire certificates and configure SSL protocols in your Nginx config. Replace `api.stadiumos.com` with the custom domain you pointed to your EC2 IP (`13.126.215.26`):
    ```bash
    sudo certbot --nginx -d api.stadiumos.com
    ```
-   *(Follow the on-screen prompts to enter your email and agree to the Terms of Service. Certbot will automatically rewrite your `/etc/nginx/sites-available/stadiumos.conf` to configure SSL paths).*
+   *(Follow the on-screen prompts to enter your email and agree to the Terms of Service. Certbot will automatically verify the DNS record pointing to `13.126.215.26` and rewrite your `/etc/nginx/sites-available/stadiumos.conf` to configure SSL paths).*
 
-5. **Restart Nginx**:
+6. **Restart Nginx**:
    ```bash
    sudo nginx -t # Verify syntax correctness
    sudo systemctl restart nginx
