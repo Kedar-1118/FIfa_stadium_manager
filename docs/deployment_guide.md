@@ -42,6 +42,13 @@ echo \
 sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
+# Configure Swap File (Crucial for small t3.micro/t2.micro instances to prevent out-of-memory hangs during compilation!)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
 # Allow running docker commands without sudo
 sudo usermod -aG docker $USER
 newgrp docker
