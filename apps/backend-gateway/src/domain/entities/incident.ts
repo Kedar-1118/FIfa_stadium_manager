@@ -21,7 +21,7 @@ export class Incident {
   public readonly incident_type: string;
   public readonly severity: IncidentSeverity;
   public status: IncidentStatus;
-  public readonly description: string;
+  public description: string;
   public readonly location: Coordinates;
   public readonly sector_id: string;
   public readonly gate_id: string | null;
