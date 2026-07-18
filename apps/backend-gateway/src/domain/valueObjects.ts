@@ -35,7 +35,7 @@ export class Coordinates {
 }
 
 export class SectorBoundary {
-  public readonly vertices: Coordinates[];
+  public readonly vertices: readonly Coordinates[];
 
   constructor(vertices: Coordinates[]) {
     if (vertices.length < 4) {
